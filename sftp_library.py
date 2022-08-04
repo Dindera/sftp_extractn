@@ -1,6 +1,10 @@
+import logging
+import os
 import pysftp
+import logging
 import boto3
 import configparser
+from botocore.exceptions import ClientError
 
 config = configparser.ConfigParser()
 config.read('config.cfg')
@@ -18,6 +22,7 @@ class SFTPExtract:
         self.password = password
 
     def load(self):
+        """extracts file from sftp server """
         cnopts = pysftp.CnOpts()
         cnopts.hostkeys = None
         """ connect to the server """
@@ -38,11 +43,33 @@ class SFTPExtract:
 
         return
 
-    def store():
-        """ store file to s3 bucket """
-        pass
+    def store(self, file_name, bucket, Key=None):
+        """ 
+        This method uploads files to s3 bucket 
+        file_name - path to file 
+        bucket - s3 bucket to upload file
+        Key - name of file to upload
+        """
+        self.file_name = file_name
+        self.bucket = bucket
+        self.key = Key
+        session = boto3.Session(profile_name='duspat')
+        client = session.client('s3')
+
+        if self.key == None:
+            self.key = os.path.basename(self.file_name)
+
+        try:
+            response = client.upload_file(self.file_name, self.bucket, self.key)
+
+        except ClientError as e:
+            logging.error(e)
+            return False
+        return True
 
 
 if __name__ == "__main__":
     sftpextract = SFTPExtract(Host, Username, Password)
     sftpextract.load()
+    sftpextract.store('input/ar_weekly_dup.csv', 'sftp-etl', 'ar_weekly_dup.csv')
+    sftpextract.store('input/DE_202208_100.xlsx', 'sftp-etl', 'DE_202208_100.xlsx')
